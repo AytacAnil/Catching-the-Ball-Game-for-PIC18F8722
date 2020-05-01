@@ -29,7 +29,7 @@ pclath_temp
     ORG     0000h
     goto init
     ORG     0008h
-    ;goto high_isr
+    goto error_loop;high_isr
     ORG     0018h
     goto low_isr
 
@@ -110,6 +110,8 @@ init:
     bsf	    INTCON,7	    ;	enables Global High Priority Interrupts
     bsf	    INTCON,6	    ;	enables Global Low Priority Interrupts
     bsf	    PIE1,1	    ;	enables timer2 interrupts, intrpt flag is on PIR1,1
+    bsf	    T2CON,2
+    bcf	    IPR1,1	    ;	set Timer2 as Low Priority
 
     goto    main
 
