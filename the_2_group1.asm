@@ -2,7 +2,7 @@
 
 #INCLUDE <p18f8722.inc>
 
- CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
+ ;CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
 
 ;   variables
 level        udata 0X20     ;   variable for 7seg Level display
@@ -45,7 +45,10 @@ init:
     movwf   level           ;
 
     movlw   b'10110110'     ;   hp = 5, sets a,f,g,c,d of 7seg
-    movwf   hp              ;   
+    movwf   hp              ;
+
+    movlw   b'11000000'     ;   pad is on RA5 and RB5
+    movwf   pad_loc
 
     ;bsf     PORTA,5         ;   set RA5 and RB5
     ;bsf     PORTB,5         ;   for pad initialization
