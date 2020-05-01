@@ -1,26 +1,70 @@
  LIST    P=18F8722
 
-#INCLUDE <p18f8722.inc>
+#INCLUDE <p18f8722.inc> 
 
- ;CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
+    CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
 
 ;   variables
-level        udata 0X20     ;   variable for 7seg Level display
-level
-hp           udata 0X21     ;   variable for 7seg HP display
-hp
-pad_loc      udata 0x22     ;   variable for checking where the pad is
-pad_loc                     ;   abcd|0000 -> 1100|0000 means that pad is on the
-                            ;   RA and RB, 0011|0000 means that pad is
-                            ;   on RC and RD 
+    UDATA_ACS
+level res 1	;   variable for 7seg Level display
+hp res 1	;   variable for 7seg HP display
+pad_loc res 1	;   variable for checking where the pad is
+		;   abcd|0000 -> 1100|0000 means that pad is on the
+                ;   RA and RB, 0011|0000 means that pad is
+                ;   on RC and RD 			    
+wait_counter res 1
+ 
+counter   udata 0x22
+counter
+
+w_temp  udata 0x23
+w_temp
+
+status_temp udata 0x24
+status_temp
+
+pclath_temp udata 0x25
+pclath_temp
  
     ORG     0000h
     goto init
     ORG     0008h
     ;goto high_isr
     ORG     0018h
-    ;goto low_isr
+    goto low_isr
 
+low_isr:
+    ;	1 -> b,c:	0110|0000
+    ;	2 -> a,b,d,e,g: 1101|1010
+    ;	3 -> a,b,c,d,g: 1111|0010
+    ;	4 -> b,c,f,g:   0110|0110
+    ;	5 -> a,c,d,f,g: 1011|0110
+    
+    call    save_registers
+    
+    bcf	    PIR1,1	;   clear timer 2 intrpt flag
+    
+    movff   level,LATJ	;   show level
+    bcf	    PORTH,3	;   close display 3
+    bsf	    PORTH,0	;   open display 0
+    
+    goto wait_a_bit
+
+wait_a_bit:
+    
+    decfsz  wait_counter
+    goto    wait_a_bit
+    
+    movlw   0x0F
+    movwf   wait_counter
+    
+    movff   hp,LATJ	;   show hp
+    bcf	    PORTH,0	;   close display 0
+    bsf	    PORTH,3	;   open display 3
+    
+    call restore_registers
+    retfie
+    
 init:
     clrf    TRISA
     clrf    TRISB
@@ -29,8 +73,12 @@ init:
     clrf    TRISG
     clrf    TRISH
     clrf    TRISJ
-
+    clrf    INTCON
+    clrf    PIR1
     clrf    WREG;
+    
+    movlw   b'00001000'
+    movwf   ADCON1	    ;	makes PORTA Digital
 
     movlw   b'11000000'     ;   initialize <5:0>
     movwf   TRISA           ;   of ports a->d
@@ -49,13 +97,19 @@ init:
 
     movlw   b'11000000'     ;   pad is on RA5 and RB5
     movwf   pad_loc
+    
+    movlw   0x0F
+    movwf   wait_counter  ;	variable for waiting in
 
-    ;bsf     PORTA,5         ;   set RA5 and RB5
-    ;bsf     PORTB,5         ;   for pad initialization
+    bsf     PORTA,5         ;   set RA5 and RB5
+    bsf     PORTB,5         ;   for pad initialization
     bsf     LATA,5          ;   < gerek var m? bilmiyorum
-    bsf     LATB,5          ;   < THE 1'de LAT kullanmısısm ledler için
+    bsf     LATB,5          ;   < THE 1'de LAT kullanm?s?sm ledler için
 
-
+    bsf	    RCON,7	    ;	IPEN = 1, makes GIE->GIEH, PEIE->GIEL
+    bsf	    INTCON,7	    ;	enables Global High Priority Interrupts
+    bsf	    INTCON,6	    ;	enables Global Low Priority Interrupts
+    bsf	    PIE1,1	    ;	enables timer2 interrupts, intrpt flag is on PIR1,1
 
     goto    main
 
@@ -134,5 +188,24 @@ check_pad_loc_BC_left:
 error_loop:
     goto error_loop
 
- 
+;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
+save_registers:
+    movwf 	w_temp          ;Copy W to TEMP register
+    swapf 	STATUS, w       ;Swap status to be saved into W
+    clrf 	STATUS          ;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+    movwf 	status_temp     ;Save status to bank zero STATUS_TEMP register
+    movf 	PCLATH, w       ;Only required if using pages 1, 2 and/or 3
+    movwf 	pclath_temp     ;Save PCLATH into W
+    clrf 	PCLATH          ;Page zero, regardless of current page
+	return
+
+restore_registers:
+    movf 	pclath_temp, w  ;Restore PCLATH
+    movwf 	PCLATH          ;Move W into PCLATH
+    swapf 	status_temp, w  ;Swap STATUS_TEMP register into W
+    movwf 	STATUS          ;Move W into STATUS register
+    swapf 	w_temp, f       ;Swap W_TEMP
+    swapf 	w_temp, w       ;Swap W_TEMP into W
+    return
+    
     end
