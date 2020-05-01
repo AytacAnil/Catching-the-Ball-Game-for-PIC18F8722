@@ -107,11 +107,21 @@ init:
     bsf     LATB,5          ;   < THE 1'de LAT kullanm?s?sm ledler için
 
     bsf	    RCON,7	    ;	IPEN = 1, makes GIE->GIEH, PEIE->GIEL
-    bsf	    INTCON,7	    ;	enables Global High Priority Interrupts
-    bsf	    INTCON,6	    ;	enables Global Low Priority Interrupts
     bsf	    PIE1,1	    ;	enables timer2 interrupts, intrpt flag is on PIR1,1
     bsf	    T2CON,2
     bcf	    IPR1,1	    ;	set Timer2 as Low Priority
+
+    ;Initialize Timer0
+    movlw   b'01000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
+                        ; Timer0 increment with a prescaler of 1:256.
+    movwf   T0CON
+
+    ;Enable interrupts
+    movlw   b'11100000' ; Enable Global, peripheral, Timer0 interrupts by 
+                        ; setting GIE, PEIE, and TMR0IE bits to 1
+    movwf   INTCON
+
+    bsf     T0CON, 7    ; Enable Timer0
 
     goto    main
 
