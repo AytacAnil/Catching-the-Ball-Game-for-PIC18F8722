@@ -109,8 +109,8 @@ check_pad_loc_BC_right:
 
 rg3_pressed:
     ;   show 7 segment display
-    btfsc   PORTG,2         ;   if RG3 is held pressed, loop here
-    goto    rg2_pressed
+    btfsc   PORTG,3         ;   if RG3 is held pressed, loop here
+    goto    rg3_pressed
     btfss   pad_loc,4       ;   checks if the right part of pad is on RD5
     goto    check_pad_loc_BC_left
     bsf     PORTB,5         ;   set RB5
