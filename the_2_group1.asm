@@ -1,8 +1,8 @@
-LIST    P=18F8722
+ LIST    P=18F8722
 
 #INCLUDE <p18f8722.inc>
 
-CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
+ CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
 
 ;   variables
 level        udata 0X20     ;   variable for 7seg Level display
@@ -12,14 +12,14 @@ hp
 pad_loc      udata 0x22     ;   variable for checking where the pad is
 pad_loc                     ;   abcd|0000 -> 1100|0000 means that pad is on the
                             ;   RA and RB, 0011|0000 means that pad is
-                            ;   on RC and RD
-
-ORG     0000h
-goto init
-ORG     0008h
-goto high_isr
-ORG     0018h
-goto low_isr
+                            ;   on RC and RD 
+ 
+    ORG     0000h
+    goto init
+    ORG     0008h
+    ;goto high_isr
+    ORG     0018h
+    ;goto low_isr
 
 init:
     clrf    TRISA
@@ -47,10 +47,10 @@ init:
     movlw   b'10110110'     ;   hp = 5, sets a,f,g,c,d of 7seg
     movwf   hp              ;   
 
-    bsf     PORTA,5         ;   set RA5 and RB5
-    bsf     PORTB,5         ;   for pad initialization
-    bsf     LATA,5          ;   < gerek var mı bilmiyorum
-    bsf     LATB,5          ;   < THE 1'de LAT kullanmışım ledler için
+    ;bsf     PORTA,5         ;   set RA5 and RB5
+    ;bsf     PORTB,5         ;   for pad initialization
+    bsf     LATA,5          ;   < gerek var m? bilmiyorum
+    bsf     LATB,5          ;   < THE 1'de LAT kullanmısısm ledler için
 
 
 
@@ -117,7 +117,7 @@ rg3_pressed:
     rlncf   pad_loc,1       ;   shift pad_loc varble to left, now: 0110|0000
     goto    game_loop       ;   pad shifted, go to game_loop
 
-check_pad_loc_6:
+check_pad_loc_BC_left:
     ;   show 7 segment display
     btfss   pad_loc,5       ;   checks if the right part of pad is on RC5
     goto    game_loop       ;   goto game_loop because pad is on the left edge
@@ -127,3 +127,9 @@ check_pad_loc_6:
     bcf     LATC,5
     rlncf   pad_loc,1       ;   shift pad_loc varble to left, now: 1100|0000
     goto    game_loop       ;   pad shifted, go to game_loop
+
+error_loop:
+    goto error_loop
+
+ 
+    end
