@@ -224,7 +224,7 @@ high_isr:
     movlw   d'63'       ; Yes
     cpfslt  ball_counter ;  check ball count is equal 30
     goto   setfreq63 ; No, namely, level = 3 and game has not been over, then
-    goto    timer0_interrupt_exit; Yes
+    goto    timer0_interrupt_exit; Yes ; ?????????????????????????????????????????????????????????????????
 
 setfreq90:
     movlw   d'90'
@@ -261,7 +261,7 @@ timer0_interrupt_exit:
     movwf	TMR0
     call    end_game_check
     ;call	restore_registers   ;Restore STATUS and PCLATH registers to their state before interrupt occurs
-    retfie  fast
+    RETFIE  FAST
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
 save_registers:
