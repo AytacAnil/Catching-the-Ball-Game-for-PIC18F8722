@@ -11,7 +11,7 @@ hp                res 1	;   variable for 7seg HP display
 pad_loc           res 1	;   variable for checking where the pad is
 		        ;   abcd|0000 -> 1100|0000 means that pad is on the
                         ;   RA and RB, 0011|0000 means that pad is
-                        ;   on RC and RD 
+                        ;   on RC and RD
 display_flag	  res 1 ;   flag for selecting which digit to display; 0=level, 1=hp
 counter           res 1
 w_temp            res 1
@@ -65,7 +65,7 @@ low_isr:
 	call restore_registers
 	retfie
 ;-------------------------------------------------------------------------------
-    
+	
 init:
     clrf    TRISA
     clrf    TRISB
@@ -299,13 +299,13 @@ generate_ball_location
 end_game_check
     cpfslt	d'35'
     goto	set_end_game_flag
-    cpfseq	b'00000000'	;   if level variable is shows level 0
+    cpfseq	b'00000000'	    ;   if level variable is shows level 0
     goto	set_end_game_flag
     return
     
     set_end_game_flag:
-	movlw	0x01	 ;   set flag to end game
-	movwf	is_ended ;
+	movlw	0x01	    ;   set flag to end game
+	movwf	is_ended    ;
     return
 ;
 
