@@ -251,7 +251,7 @@ timer0_interrupt:
     movf	counter, w              ;Move count to Working register
     subwf	timer0_interrupt_freq,0  ;Subtract W from timer0_interrupt_freq
     btfss	STATUS, Z               ;Is the result Zero?
-    goto	timer_interrupt_exit    ;No, then exit from interrupt service routine
+    goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
     ; call random_ball_generator
 
