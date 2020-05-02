@@ -223,12 +223,8 @@ init_timer1
     
 save_timer1_value       
     ;call when RG0 is pressed to save the timer1 value
-    MOVLW b'01100010';test
-    MOVWF TMR1L;test
-    MOVLW b'10010101';test
-    MOVWF TMR1H;test
-    MOVFF TMR1H, saved_timer1_high ;swap when test over
     MOVFF TMR1L, saved_timer1_low
+    MOVFF TMR1H, saved_timer1_high
     
     MOVLW b'00000000'   ;Disable timer1
     MOVWF T1CON
