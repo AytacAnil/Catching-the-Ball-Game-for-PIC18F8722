@@ -11,8 +11,8 @@ hp                res 1	;   variable for 7seg HP display
 pad_loc           res 1	;   variable for checking where the pad is
 		        ;   abcd|0000 -> 1100|0000 means that pad is on the
                         ;   RA and RB, 0011|0000 means that pad is
-                        ;   on RC and RD 			    
-wait_counter      res 1
+                        ;   on RC and RD 
+display_flag	  res 1 ;   flag for selecting which digit to display; 0=level, 1=hp
 counter           res 1
 w_temp            res 1
 status_temp       res 1
@@ -33,37 +33,38 @@ is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init sta
  ORG     0018h
  goto	low_isr
 
+; LOW ISR FOR SHOWING 7 SEGMENT DISPLAY |---------------------------------------
 low_isr:
     ;	1 -> b,c:	0110|0000
     ;	2 -> a,b,d,e,g: 1101|1010
     ;	3 -> a,b,c,d,g: 1111|0010
     ;	4 -> b,c,f,g:   0110|0110
-    ;	5 -> a,c,d,f,g: 1011|0110
-    
+    ;	5 -> a,c,d,f,g: 1011|0110    
     call    save_registers
     
-    bcf	    PIR1,1	;   clear timer 2 intrpt flag
+    bcf	    PIR1,1	    ;   clear timer 2 intrpt flag
+    btfss   display_flag,0  ;	if(flag == 0)
+    goto    level_display   ;	then go to level_display
+    goto    hp_display	    ;	else go to hp_display
     
-    movff   level,LATJ	;   show level
-    bcf	    PORTH,3	;   close display 3
-    bsf	    PORTH,0	;   open display 0
-    
-    goto wait_a_bit
+    level_display:
+	movff   level,LATJ  ;   show level
+	bcf	PORTH,3	    ;   close display 3
+	bsf	PORTH,0	    ;   open display 0
+	bsf	display_flag,0
+	goto	finish_isr
 
-wait_a_bit:
+    hp_display:
+	movff   hp,LATJ  ;   show hp
+	bcf	PORTH,0	    ;   close display 0
+	bsf	PORTH,3	    ;   open display 3
+	bcf	display_flag,0
+	goto	finish_isr
     
-    decfsz  wait_counter
-    goto    wait_a_bit
-    
-    movlw   0x0F
-    movwf   wait_counter
-    
-    movff   hp,LATJ	;   show hp
-    bcf	    PORTH,0	;   close display 0
-    bsf	    PORTH,3	;   open display 3
-    
-    call restore_registers
-    retfie
+    finish_isr:
+	call restore_registers
+	retfie
+;-------------------------------------------------------------------------------
     
 init:
     clrf    TRISA
@@ -98,10 +99,9 @@ init:
     movlw   b'11000000'     ;   pad is on RA5 and RB5
     movwf   pad_loc
     
-    movlw   0x0F
-    movwf   wait_counter    ;	variable for waiting in
-    
-    movlw   0x00	    ;	clear is_ended flag
+    movlw   0x00	    ;	
+    movwf   is_ended	    ;	clear is_ended flag
+    movwf   display_flag    ;	clear display_flag
 
     bsf     LATA,5          ;   set RA5 and RB5
     bsf     LATB,5          ;   for pad initialization
