@@ -118,12 +118,12 @@ init:
     call    init_timer1     ;	initialize Timer1
 
     ;Initialize Timer0
-    movlw   b'01000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
+    movlw   b'11000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
                         ; Timer0 increment with a prescaler of 1:256.
     movwf   T0CON
 
     ;Enable interrupts
-    movlw   b'11100000' ; Enable Global, peripheral, Timer0 interrupts by
+    movlw   b'11000000' ; Enable Global, peripheral, Timer0 interrupts by
                         ; setting GIE, PEIE, and TMR0IE bits to 1
     movwf   INTCON
 
@@ -148,7 +148,7 @@ start_game:
     incf    ball_counter ; first ball counted
     movlw	d'39'
     movwf	TMR0 ; initial timer value
-    bsf     T0CON, 7    ; Enable Timer0
+    bsf     INTCON, 5    ; Enable Timer0
     goto game_loop
 
 game_loop:
