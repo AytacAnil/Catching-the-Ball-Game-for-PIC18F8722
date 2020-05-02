@@ -308,6 +308,56 @@ end_game_check
 	movwf	is_ended ;
     return
 ;
+
+;   HP DECREMENT FUNCTION
+decrement_hp
+    movwf	hp,0	    ;	get hp value in 7 segment format
+    cpfseq	b'00000000' ;	if( hp != 0 ) goto hp_1 check
+    goto	hp_1
+    movlw	0x01	    ;	set is_ended flag to end game
+    movwf	is_ended    ;
+    return
+    
+    hp_1:
+	cpfseq	b'01100000' ;	if( hp != 1 ) goto hp_2 check
+	goto	hp_2
+	movlw	b'00000000' ;	change hp to 0 in 7 segment format
+	movwf	hp
+	movlw	0x01	    ;	set is_ended flag to end game
+	movwf	is_ended    ;
+	return
+	
+    hp_2:
+	cpfseq	b'11011010' ;	if( hp != 2 ) goto hp_3 check
+	goto	hp_3
+	movlw	b'01100000' ;	change hp to 1 in 7 segment format
+	movwf	hp
+	return
+    
+    hp_3:
+	cpfseq	b'11110010' ;	if( hp != 3 ) goto hp_4 check
+	goto	hp_4
+	movlw	b'11011010' ;	change hp to 2 in 7 segment format
+	movwf	hp
+	return
+    
+    hp_4:
+	cpfseq	b'01100110' ;	if( hp != 4 ) goto hp_5 check
+	goto	hp_5
+	movlw	b'11110010' ;	change hp to 3 in 7 segment format
+	movwf	hp
+	return
+    
+    hp_5:
+	cpfseq	b'10110110' ;	if( hp != 5 ) return
+	goto	hp_gt_5
+	movlw	b'01100110' ;	change hp to 4 in 7 segment format
+	movwf	hp
+	return
+	
+    hp_gt_5:
+	return
+;
     
 main:
     btfss   PORTG,0         ;   go to start_after_release when RG0 pressed
