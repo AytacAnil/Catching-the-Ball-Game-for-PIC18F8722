@@ -17,12 +17,12 @@ counter           res 1
 w_temp            res 1
 status_temp       res 1
 pclath_temp       res 1
-num_balls_created res 1
        
 saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
 new_ball_location res 1 ;   for new ball generation
 t_dts		  res 1 ;   for new ball generation, trivial
+num_balls_created res 1		  
 		  
 timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
 is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
