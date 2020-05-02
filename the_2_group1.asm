@@ -29,8 +29,8 @@ pclath_temp
 ball_counter   udata 0x26
 ball_counter
 
-timer0_interupt_freq   udata 0x27
-timer0_interupt_freq
+timer0_interrupt_freq   udata 0x27
+timer0_interrupt_freq
 
     ORG     0000h
     goto init
@@ -134,7 +134,7 @@ init:
     movwf   counter ; counter for timer0 interrupt management
     movwf   ball_counter ; counts created ball number
     movlw   d'90'
-    movwf   timer0_interupt_freq ; set level 1 frequency
+    movwf   timer0_interrupt_freq ; set level 1 frequency
 
     goto    main
 
@@ -217,22 +217,49 @@ check_pad_loc_BC_left:
 
 high_isr:
     call    save_registers
+
+
+
+    movlw   d'5'
+    cpfsgt  ball_counter ; check ball count is greater than 5
+    goto    setfreq90  ; No, namely, level = 1, then 
+    movlw   d'15'       ; Yes
+    cpfsgt  ball_counter ;  check ball count is greater than 15
+    goto    setfreq72   ; No, namely, level = 2, then
+    movlw   d'63'       ; Yes
+    cpfslt  ball_counter ;  check ball count is equal 30
+    goto   setfreq63 ; No, namely, level = 3 and game has not been over, then
+    goto    timer0_interrupt_exit; Yes
+
+setfreq90:
+    movlw   d'90'
+    movwf   timer0_interrupt_freq
     goto    timer0_interrupt
+setfreq72:
+    movlw   d'72'
+    movwf   timer0_interrupt_freq
+    goto    timer0_interrupt
+setfreq63:
+    movlw   d'63'
+    movwf   timer0_interrupt_freq
+    goto    timer0_interrupt
+    
+
+;256-39=217
+; 217*256*90 = 4999680 instruction cycle for 500ms
+; 217*256*72 = 3999744 instruction cycle for 400ms
+; 217*256*63 = 3499776 instruction cycle for 350ms
 
 ;;;;;;;;;;;;;;;;;;;;;;;; Timer0 interrupt handler part ;;;;;;;;;;;;;;;;;;;;;;;;;;
 timer0_interrupt:
     incf	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
     movf	counter, w              ;Move count to Working register
-    sublw	d'100'                  ;Decrement 100 from Working register
+    subwf	timer0_interrupt_freq,0  ;Subtract W from timer0_interrupt_freq
     btfss	STATUS, Z               ;Is the result Zero?
     goto	timer_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
-    comf	state, f                ;Complement our state variable which controls on/off state of LED0
+    ; call random_ball_generator
 
-;256-39=217
-; 217*256*90 = 4999680 instruction cycle for 500ms
-; 217*256*72 = 3999744 instruction cycle for 400ms
-; 217*256*63 = 3499776 instruction cycle for 300ms
 timer0_interrupt_exit:
     bcf	    INTCON, 2		    ;Clear TMROIF
     movlw	d'39'               
