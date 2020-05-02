@@ -26,6 +26,12 @@ status_temp
 pclath_temp udata 0x25
 pclath_temp
 
+ball_counter   udata 0x26
+ball_counter
+
+timer0_interupt_freq   udata 0x27
+timer0_interupt_freq
+
     ORG     0000h
     goto init
     ORG     0008h
@@ -122,7 +128,13 @@ init:
                         ; setting GIE, PEIE, and TMR0IE bits to 1
     movwf   INTCON
 
-    bsf     T0CON, 7    ; Enable Timer0
+
+    ;set timer0 related variables;
+    movlw   0
+    movwf   counter ; counter for timer0 interrupt management
+    movwf   ball_counter ; counts created ball number
+    movlw   d'90'
+    movwf   timer0_interupt_freq ; set level 1 frequency
 
     goto    main
 
@@ -132,6 +144,7 @@ main:
     goto    main
     goto    start_after_release
 
+;;;;;; TODO :: game bittiğinde timer0 disable edilecek??
 start_after_release:
     ;   call show 7 segment display
     btfsc   PORTG,0         ;   go to start_game when RG0 released
@@ -140,6 +153,10 @@ start_after_release:
 
 start_game:
     ;   call create_random_ball
+    incf    ball_counter ; first ball counted
+    bsf     T0CON, 7    ; Enable Timer0
+    movlw	d'39'               
+    movwf	TMR0 ; initial timer value
     goto game_loop
 
 game_loop:
