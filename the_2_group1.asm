@@ -17,6 +17,7 @@ counter           res 1
 w_temp            res 1
 status_temp       res 1
 pclath_temp       res 1
+num_balls_created res 1
        
 saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
@@ -292,6 +293,93 @@ generate_ball_location
     CALL compute_ball_location
     CALL do_timer1_shifts
     RETURN  
+    
+insert_generated_ball
+    ;insert the new ball to the board, ball location must be generated
+    ;before calling this function
+    MOVF new_ball_location, W
+    XORLW d'0'	
+    BZ led_RA0
+    MOVF new_ball_location, W
+    XORLW d'1'	
+    BZ led_RB0
+    MOVF new_ball_location, W
+    XORLW d'2'	
+    BZ led_RC0
+    GOTO led_RD0
+    
+    led_RA0:
+	BSF LATA, 0
+	GOTO ball_generated
+    led_RB0:
+	BSF LATB, 0
+	GOTO ball_generated
+    led_RC0:
+	BSF LATC, 0
+	GOTO ball_generated
+    led_RD0:
+	BSF LATD, 0
+	GOTO ball_generated
+    ball_generated:
+	INCF num_balls_created
+    return
+
+shift_balls
+    ;shifts the balls on the board and calls decrement_hp if necessary
+    RLNCF LATA, F
+    RLNCF LATB, F
+    RLNCF LATC, F
+    RLNCF LATD, F
+    
+    MOVF pad_loc, W
+    XORLW b'11000000'	
+    BZ pad_at_left
+    MOVF pad_loc, W
+    XORLW b'01100000'	
+    BZ pad_at_middle
+    GOTO pad_at_right
+    
+    pad_at_left:
+	BSF LATA, 5
+	BSF LATB, 5
+	BCF LATA, 6
+	BCF LATB, 6
+	GOTO check_row6
+    pad_at_middle:
+    	BSF LATB, 5
+	BSF LATC, 5
+	BCF LATB, 6
+	BCF LATC, 6
+	GOTO check_row6
+    pad_at_right:
+    	BSF LATC, 5
+	BSF LATD, 5
+	BCF LATC, 6
+	BCF LATD, 6
+	GOTO check_row6
+    
+    check_row6:
+	BTFSC LATA, 6
+	CALL decrement_hp
+	BCF   LATA, 6
+	BTFSC LATB, 6
+	CALL decrement_hp
+	BCF   LATB, 6
+	BTFSC LATC, 6
+	CALL decrement_hp
+	BCF   LATC, 6
+	BTFSC LATD, 6
+	CALL decrement_hp
+	BCF   LATD, 6
+    return
+    
+generate_new_ball
+    ;call this to insert the new ball and do the board shift
+    CALL generate_ball_location ;location is loaded
+    CALL shift_balls		;shift current balls
+    CALL insert_generated_ball  ;insert the new ball
+    return
+        
 ;;;;;;;;;;;;       Random ball generation algorithm ends here       ;;;;;;;;;;;;
 
     
