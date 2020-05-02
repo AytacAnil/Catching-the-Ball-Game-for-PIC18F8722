@@ -29,7 +29,7 @@ pclath_temp
     ORG     0000h
     goto init
     ORG     0008h
-    goto error_loop;high_isr
+    goto high_isr
     ORG     0018h
     goto low_isr
 
@@ -76,6 +76,7 @@ init:
     clrf    INTCON
     clrf    PIR1
     clrf    WREG;
+    clrf    T0CON
 
     movlw   b'00001000'
     movwf   ADCON1	    ;	makes PORTA Digital
@@ -197,8 +198,30 @@ check_pad_loc_BC_left:
     rlncf   pad_loc,1       ;   shift pad_loc varble to left, now: 1100|0000
     goto    game_loop       ;   pad shifted, go to game_loop
 
-error_loop:
-    goto error_loop
+high_isr:
+    call    save_registers
+    goto    timer0_interrupt
+
+;;;;;;;;;;;;;;;;;;;;;;;; Timer0 interrupt handler part ;;;;;;;;;;;;;;;;;;;;;;;;;;
+timer0_interrupt:
+    incf	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
+    movf	counter, w              ;Move count to Working register
+    sublw	d'100'                  ;Decrement 100 from Working register
+    btfss	STATUS, Z               ;Is the result Zero?
+    goto	timer_interrupt_exit    ;No, then exit from interrupt service routine
+    clrf	counter                 ;Yes, then clear count variable
+    comf	state, f                ;Complement our state variable which controls on/off state of LED0
+
+;256-39=217
+; 217*256*90 = 4999680 instruction cycle for 500ms
+; 217*256*72 = 3999744 instruction cycle for 400ms
+; 217*256*63 = 3499776 instruction cycle for 300ms
+timer0_interrupt_exit:
+    bcf	    INTCON, 2		    ;Clear TMROIF
+    movlw	d'39'               
+    movwf	TMR0
+    call	restore_registers   ;Restore STATUS and PCLATH registers to their state before interrupt occurs
+    retfie
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
 save_registers:
