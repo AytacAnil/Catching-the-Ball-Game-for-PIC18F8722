@@ -1,6 +1,6 @@
  LIST    P=18F8722
 
-#INCLUDE <p18f8722.inc> 
+#INCLUDE <p18f8722.inc>
 
     CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
 
@@ -17,15 +17,18 @@ counter           res 1
 w_temp            res 1
 status_temp       res 1
 pclath_temp       res 1
-       
+ball_counter      res 1
+timer0_interrupt_freq      res 1
+
 saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
 new_ball_location res 1 ;   for new ball generation
 t_dts		  res 1 ;   for new ball generation, trivial
-		  
-timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
+num_balls_created res 1 ; Aytaç'â sor
+
+;timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
 is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
- 
+
  ORG     0000h
  goto	init
  ORG     0008h
@@ -39,14 +42,14 @@ low_isr:
     ;	2 -> a,b,d,e,g: 1101|1010
     ;	3 -> a,b,c,d,g: 1111|0010
     ;	4 -> b,c,f,g:   0110|0110
-    ;	5 -> a,c,d,f,g: 1011|0110    
+    ;	5 -> a,c,d,f,g: 1011|0110
     call    save_registers
-    
+
     bcf	    PIR1,1	    ;   clear timer 2 intrpt flag
     btfss   display_flag,0  ;	if(flag == 0)
     goto    level_display   ;	then go to level_display
     goto    hp_display	    ;	else go to hp_display
-    
+
     level_display:
 	movff   level,LATJ  ;   show level
 	bcf	PORTH,3	    ;   close display 3
@@ -60,12 +63,12 @@ low_isr:
 	bsf	PORTH,3	    ;   open display 3
 	bcf	display_flag,0
 	goto	finish_isr
-    
+
     finish_isr:
 	call restore_registers
 	retfie
 ;-------------------------------------------------------------------------------
-	
+
 init:
     clrf    TRISA
     clrf    TRISB
@@ -77,7 +80,8 @@ init:
     clrf    INTCON
     clrf    PIR1
     clrf    WREG;
-    
+    clrf    T0CON
+
     movlw   b'00001111'
     movwf   ADCON1	    ;	makes PORTA Digital
 
@@ -98,8 +102,8 @@ init:
 
     movlw   b'11000000'     ;   pad is on RA5 and RB5
     movwf   pad_loc
-    
-    movlw   0x00	    ;	
+
+    movlw   0x00	    ;
     movwf   is_ended	    ;	clear is_ended flag
     movwf   display_flag    ;	clear display_flag
 
@@ -107,23 +111,44 @@ init:
     bsf     LATB,5          ;   for pad initialization
 
     bsf	    RCON,7	    ;	IPEN = 1, makes GIE->GIEH, PEIE->GIEL
-    bsf	    INTCON,7	    ;	enables Global High Priority Interrupts
-    bsf	    INTCON,6	    ;	enables Global Low Priority Interrupts
     bsf	    PIE1,1	    ;	enables timer2 interrupts, intrpt flag is on PIR1,1
     bsf	    T2CON,2
     bcf	    IPR1,1	    ;	set Timer2 as Low Priority
-    
+
     call    init_timer1     ;	initialize Timer1
+
+    ;Initialize Timer0
+    movlw   b'01000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
+                        ; Timer0 increment with a prescaler of 1:256.
+    movwf   T0CON
+
+    ;Enable interrupts
+    movlw   b'11100000' ; Enable Global, peripheral, Timer0 interrupts by
+                        ; setting GIE, PEIE, and TMR0IE bits to 1
+    movwf   INTCON
+
+
+    ;set timer0 related variables;
+    movlw   0
+    movwf   counter ; counter for timer0 interrupt management
+    movwf   ball_counter ; counts created ball number
+    movlw   d'90'
+    movwf   timer0_interrupt_freq ; set level 1 frequency
 
     goto    main
 
 start_after_release:
     btfsc   PORTG,0         ;   go to start_game when RG0 released
     goto    start_after_release
+    call    save_timer1_value
     goto    start_game
 
 start_game:
     ;   call create_random_ball
+    incf    ball_counter ; first ball counted
+    movlw	d'39'
+    movwf	TMR0 ; initial timer value
+    bsf     T0CON, 7    ; Enable Timer0
     goto game_loop
 
 game_loop:
@@ -188,9 +213,55 @@ check_pad_loc_BC_left:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 high_isr:
-    ;	... metin's code
+    ;call    save_registers
+
+    movlw   d'5'
+    cpfsgt  ball_counter ; check ball count is greater than 5
+    goto    setfreq90  ; No, namely, level = 1, then
+    movlw   d'15'       ; Yes
+    cpfsgt  ball_counter ;  check ball count is greater than 15
+    goto    setfreq72   ; No, namely, level = 2, then
+    movlw   d'63'       ; Yes
+    cpfslt  ball_counter ;  check ball count is equal 30
+    goto   setfreq63 ; No, namely, level = 3 and game has not been over, then
+    goto    timer0_interrupt_exit; Yes
+
+setfreq90:
+    movlw   d'90'
+    movwf   timer0_interrupt_freq
+    goto    timer0_interrupt
+setfreq72:
+    movlw   d'72'
+    movwf   timer0_interrupt_freq
+    goto    timer0_interrupt
+setfreq63:
+    movlw   d'63'
+    movwf   timer0_interrupt_freq
+    goto    timer0_interrupt
+
+
+;256-39=217
+; 217*256*90 = 4999680 instruction cycle for 500ms
+; 217*256*72 = 3999744 instruction cycle for 400ms
+; 217*256*63 = 3499776 instruction cycle for 350ms
+
+;;;;;;;;;;;;;;;;;;;;;;;; Timer0 interrupt handler part ;;;;;;;;;;;;;;;;;;;;;;;;;;
+timer0_interrupt:
+    incf	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
+    movf	counter, w              ;Move count to Working register
+    subwf	timer0_interrupt_freq,0  ;Subtract W from timer0_interrupt_freq
+    btfss	STATUS, Z               ;Is the result Zero?
+    goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
+    clrf	counter                 ;Yes, then clear count variable
+    ; call random_ball_generator
+
+timer0_interrupt_exit:
+    bcf	    INTCON, 2		    ;Clear TMROIF
+    movlw	d'39'
+    movwf	TMR0
     call    end_game_check
-    goto    high_isr
+    ;call	restore_registers   ;Restore STATUS and PCLATH registers to their state before interrupt occurs
+    RETFIE  FAST
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
 save_registers:
@@ -211,39 +282,35 @@ restore_registers:
     swapf 	w_temp, f       ;Swap W_TEMP
     swapf 	w_temp, w       ;Swap W_TEMP into W
     return
-    
-;;;;;;;;;;;;      Random ball generation algorithm starts here      ;;;;;;;;;;;;    
+
+;;;;;;;;;;;;      Random ball generation algorithm starts here      ;;;;;;;;;;;;
 init_timer1
-    ;Initialize timer1 
+    ;Initialize timer1
     MOVLW b'11001001'   ;Set 16 bit mode, enable timer1
     MOVWF T1CON		;Set conf
     BCF PIE1, TMR1IE	;Disable timer1 interrupt
     RETURN
-    
-save_timer1_value       
+
+save_timer1_value
     ;call when RG0 is pressed to save the timer1 value
-    MOVLW b'01100010';test
-    MOVWF TMR1L;test
-    MOVLW b'10010101';test
-    MOVWF TMR1H;test
-    MOVFF TMR1H, saved_timer1_high ;swap when test over
     MOVFF TMR1L, saved_timer1_low
-    
+    MOVFF TMR1H, saved_timer1_high
+
     MOVLW b'00000000'   ;Disable timer1
     MOVWF T1CON
     RETURN
 
 compute_ball_location
     ;puts the new ball location to the new_ball_location variable
-    MOVF saved_timer1_low, W    
-    BCF  WREG, 0                
-    BCF  WREG, 1                   
+    MOVF saved_timer1_low, W
+    BCF  WREG, 0
+    BCF  WREG, 1
     SUBWF saved_timer1_low, W   ;2 rightmost bit are now in the wreg
-    MOVWF new_ball_location 
+    MOVWF new_ball_location
     RETURN
-	
 
-timer1_right_shift	
+
+timer1_right_shift
     ;does a single shift on the saved timer1 values
     MOVF  saved_timer1_high, W ;save to WREG
     BTFSC saved_timer1_low , 0 ;if bit 0 is set
@@ -251,23 +318,23 @@ timer1_right_shift
     BTFSS saved_timer1_low , 0 ;if bit 0 is clear
     BCF   saved_timer1_high, 0 ;clear bit 8
     BTFSC WREG             , 0 ;if bit 8 is set
-    BSF   saved_timer1_low , 0 ;set bit 0	
+    BSF   saved_timer1_low , 0 ;set bit 0
     BTFSS WREG             , 0 ;if bit 8 is clear
     BCF   saved_timer1_low , 0 ;clear bit 0
     RRNCF saved_timer1_low     ;rotate low
     RRNCF saved_timer1_high    ;rotate high
     RETURN
-    
+
 do_timer1_shifts
     ;does shifts according to the current level
     MOVLW d'1'      ;if   level 1
-    CPFSGT level    
-    GOTO level_no_1 
+    CPFSGT level
+    GOTO level_no_1
     MOVLW d'2'	    ;elif level 2
     CPFSGT level
     GOTO level_no_2
     GOTO level_no_3 ;else level 3
-    
+
     level_no_1:     ;shift count 1
 	MOVLW d'1'
 	MOVWF t_dts
@@ -280,29 +347,117 @@ do_timer1_shifts
 	MOVLW d'5'
 	MOVWF t_dts
 	GOTO loop_dts
-	
+
     loop_dts:       ;do the shifts
 	CALL timer1_right_shift
 	DECFSZ t_dts, F
 	GOTO loop_dts
     RETURN
-    
+
 generate_ball_location
     ;call this to compute the ball location
     CALL compute_ball_location
     CALL do_timer1_shifts
-    RETURN  
+    RETURN
+
+insert_generated_ball
+    ;insert the new ball to the board, ball location must be generated
+    ;before calling this function
+    MOVF new_ball_location, W
+    XORLW d'0'
+    BZ led_RA0
+    MOVF new_ball_location, W
+    XORLW d'1'
+    BZ led_RB0
+    MOVF new_ball_location, W
+    XORLW d'2'
+    BZ led_RC0
+    GOTO led_RD0
+
+    led_RA0:
+	BSF LATA, 0
+	GOTO ball_generated
+    led_RB0:
+	BSF LATB, 0
+	GOTO ball_generated
+    led_RC0:
+	BSF LATC, 0
+	GOTO ball_generated
+    led_RD0:
+	BSF LATD, 0
+	GOTO ball_generated
+    ball_generated:
+	INCF num_balls_created
+    return
+
+shift_balls
+    ;shifts the balls on the board and calls decrement_hp if necessary
+    RLNCF LATA, F
+    RLNCF LATB, F
+    RLNCF LATC, F
+    RLNCF LATD, F
+
+    MOVF pad_loc, W
+    XORLW b'11000000'
+    BZ pad_at_left
+    MOVF pad_loc, W
+    XORLW b'01100000'
+    BZ pad_at_middle
+    GOTO pad_at_right
+
+    pad_at_left:
+	BSF LATA, 5
+	BSF LATB, 5
+	BCF LATA, 6
+	BCF LATB, 6
+	GOTO check_row6
+    pad_at_middle:
+    	BSF LATB, 5
+	BSF LATC, 5
+	BCF LATB, 6
+	BCF LATC, 6
+	GOTO check_row6
+    pad_at_right:
+    	BSF LATC, 5
+	BSF LATD, 5
+	BCF LATC, 6
+	BCF LATD, 6
+	GOTO check_row6
+
+    check_row6:
+	BTFSC LATA, 6
+	CALL decrement_hp
+	BCF   LATA, 6
+	BTFSC LATB, 6
+	CALL decrement_hp
+	BCF   LATB, 6
+	BTFSC LATC, 6
+	CALL decrement_hp
+	BCF   LATC, 6
+	BTFSC LATD, 6
+	CALL decrement_hp
+	BCF   LATD, 6
+    return
+
+generate_new_ball
+    ;call this to insert the new ball and do the board shift
+    CALL generate_ball_location ;location is loaded
+    CALL shift_balls		;shift current balls
+    CALL insert_generated_ball  ;insert the new ball
+    return
+
 ;;;;;;;;;;;;       Random ball generation algorithm ends here       ;;;;;;;;;;;;
 
-    
+
 ;   END GAME CHECK
 end_game_check
     cpfslt	d'35'
     goto	set_end_game_flag
-    cpfseq	b'00000000'	    ;   if level variable is shows level 0
-    goto	set_end_game_flag
+    movf	hp, w
+    cpfseq	d'0'	    ;   if hp variable is shows hp 0
     return
-    
+    goto	set_end_game_flag
+
     set_end_game_flag:
 	movlw	0x01	    ;   set flag to end game
 	movwf	is_ended    ;
@@ -317,7 +472,7 @@ decrement_hp
     movlw	0x01	    ;	set is_ended flag to end game
     movwf	is_ended    ;
     return
-    
+
     hp_1:
 	cpfseq	b'01100000' ;	if( hp != 1 ) goto hp_2 check
 	goto	hp_2
@@ -326,38 +481,39 @@ decrement_hp
 	movlw	0x01	    ;	set is_ended flag to end game
 	movwf	is_ended    ;
 	return
-	
+
     hp_2:
 	cpfseq	b'11011010' ;	if( hp != 2 ) goto hp_3 check
 	goto	hp_3
 	movlw	b'01100000' ;	change hp to 1 in 7 segment format
 	movwf	hp
 	return
-    
+
     hp_3:
 	cpfseq	b'11110010' ;	if( hp != 3 ) goto hp_4 check
 	goto	hp_4
 	movlw	b'11011010' ;	change hp to 2 in 7 segment format
 	movwf	hp
 	return
-    
+
     hp_4:
 	cpfseq	b'01100110' ;	if( hp != 4 ) goto hp_5 check
 	goto	hp_5
 	movlw	b'11110010' ;	change hp to 3 in 7 segment format
 	movwf	hp
 	return
-    
+
     hp_5:
 	cpfseq	b'10110110' ;	if( hp != 5 ) return
 	goto	hp_gt_5
 	movlw	b'01100110' ;	change hp to 4 in 7 segment format
 	movwf	hp
 	return
-	
+
     hp_gt_5:
 	return
 ;
+
     
 main:
     btfss   PORTG,0         ;   go to start_after_release when RG0 pressed
