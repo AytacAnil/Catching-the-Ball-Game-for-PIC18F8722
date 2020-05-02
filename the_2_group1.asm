@@ -121,6 +121,7 @@ init:
 start_after_release:
     btfsc   PORTG,0         ;   go to start_game when RG0 released
     goto    start_after_release
+    call    save_timer1_value
     goto    start_game
 
 start_game:
