@@ -4,34 +4,34 @@
 
     CONFIG OSC=HSPLL, FCMEN=OFF, IESO=OFF,PWRT=OFF,BOREN=OFF, WDT=OFF, MCLRE=ON, LPT1OSC=OFF, LVP=OFF, XINST=OFF, DEBUG=OFF
 
-;   variables
-    UDATA_ACS
-level res 1	;   variable for 7seg Level display
-hp res 1	;   variable for 7seg HP display
-pad_loc res 1	;   variable for checking where the pad is
-		;   abcd|0000 -> 1100|0000 means that pad is on the
-                ;   RA and RB, 0011|0000 means that pad is
-                ;   on RC and RD 			    
-wait_counter res 1
+;variables
+ UDATA_ACS
+level             res 1	;   variable for 7seg Level display
+hp                res 1	;   variable for 7seg HP display
+pad_loc           res 1	;   variable for checking where the pad is
+		        ;   abcd|0000 -> 1100|0000 means that pad is on the
+                        ;   RA and RB, 0011|0000 means that pad is
+                        ;   on RC and RD 			    
+wait_counter      res 1
+counter           res 1
+w_temp            res 1
+status_temp       res 1
+pclath_temp       res 1
+       
+saved_timer1_low  res 1 ;   for new ball generation
+saved_timer1_high res 1 ;   for new ball generation
+new_ball_location res 1 ;   for new ball generation
+t_dts		  res 1 ;   for new ball generation, trivial
+		  
+timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
+is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
  
-counter   udata 0x22
-counter
-
-w_temp  udata 0x23
-w_temp
-
-status_temp udata 0x24
-status_temp
-
-pclath_temp udata 0x25
-pclath_temp
- 
-    ORG     0000h
-    goto init
-    ORG     0008h
-    goto error_loop;high_isr
-    ORG     0018h
-    goto low_isr
+ ORG     0000h
+ goto	init
+ ORG     0008h
+ goto	high_isr
+ ORG     0018h
+ goto	low_isr
 
 low_isr:
     ;	1 -> b,c:	0110|0000
@@ -77,7 +77,7 @@ init:
     clrf    PIR1
     clrf    WREG;
     
-    movlw   b'00001000'
+    movlw   b'00001111'
     movwf   ADCON1	    ;	makes PORTA Digital
 
     movlw   b'11000000'     ;   initialize <5:0>
@@ -99,12 +99,12 @@ init:
     movwf   pad_loc
     
     movlw   0x0F
-    movwf   wait_counter  ;	variable for waiting in
+    movwf   wait_counter    ;	variable for waiting in
+    
+    movlw   0x00	    ;	clear is_ended flag
 
-    bsf     PORTA,5         ;   set RA5 and RB5
-    bsf     PORTB,5         ;   for pad initialization
-    bsf     LATA,5          ;   < gerek var m? bilmiyorum
-    bsf     LATB,5          ;   < THE 1'de LAT kullanm?s?sm ledler için
+    bsf     LATA,5          ;   set RA5 and RB5
+    bsf     LATB,5          ;   for pad initialization
 
     bsf	    RCON,7	    ;	IPEN = 1, makes GIE->GIEH, PEIE->GIEL
     bsf	    INTCON,7	    ;	enables Global High Priority Interrupts
@@ -112,17 +112,12 @@ init:
     bsf	    PIE1,1	    ;	enables timer2 interrupts, intrpt flag is on PIR1,1
     bsf	    T2CON,2
     bcf	    IPR1,1	    ;	set Timer2 as Low Priority
+    
+    call    init_timer1     ;	initialize Timer1
 
     goto    main
-
-main:
-    ;   call show 7 segment display
-    btfss   PORTG,0         ;   go to start_after_release when RG0 pressed
-    goto    main
-    goto    start_after_release
 
 start_after_release:
-    ;   call show 7 segment display
     btfsc   PORTG,0         ;   go to start_game when RG0 released
     goto    start_after_release
     goto    start_game
@@ -132,7 +127,8 @@ start_game:
     goto game_loop
 
 game_loop:
-    ;   show 7 segment display
+    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    goto    init
     btfsc   PORTG,2         ;   if set, go to RG2 pressed state
     goto    rg2_pressed
     btfsc   PORTG,3         ;   if set, go to RG3 pressed state
@@ -140,7 +136,8 @@ game_loop:
     goto    game_loop       ;   if RG2 = RG3 = 0, check again
 
 rg2_pressed:
-    ;   show 7 segment display
+    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    goto    init
     btfsc   PORTG,2         ;   if RG2 is held pressed, loop here
     goto    rg2_pressed
     btfss   pad_loc,7       ;   checks if the left part of pad is on RA5
@@ -153,7 +150,8 @@ rg2_pressed:
     goto    game_loop       ;   pad shifted, go to game loop
 
 check_pad_loc_BC_right:
-    ;   show 7 segment display
+    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    goto    init
     btfss   pad_loc,6       ;   checks if the left part of pad is on RB5
     goto    game_loop       ;   goto game_loop because pad is on the right edge
     bcf     PORTB,5
@@ -164,7 +162,8 @@ check_pad_loc_BC_right:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 rg3_pressed:
-    ;   show 7 segment display
+    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    goto    init
     btfsc   PORTG,3         ;   if RG3 is held pressed, loop here
     goto    rg3_pressed
     btfss   pad_loc,4       ;   checks if the right part of pad is on RD5
@@ -177,7 +176,8 @@ rg3_pressed:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 check_pad_loc_BC_left:
-    ;   show 7 segment display
+    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    goto    init
     btfss   pad_loc,5       ;   checks if the right part of pad is on RC5
     goto    game_loop       ;   goto game_loop because pad is on the left edge
     bsf     PORTA,5         ;   set RC5
@@ -187,8 +187,10 @@ check_pad_loc_BC_left:
     rlncf   pad_loc,1       ;   shift pad_loc varble to left, now: 1100|0000
     goto    game_loop       ;   pad shifted, go to game_loop
 
-error_loop:
-    goto error_loop
+high_isr:
+    ;	... metin's code
+    call    end_game_check
+    goto    high_isr
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
 save_registers:
@@ -210,4 +212,105 @@ restore_registers:
     swapf 	w_temp, w       ;Swap W_TEMP into W
     return
     
-    end
+;;;;;;;;;;;;      Random ball generation algorithm starts here      ;;;;;;;;;;;;    
+init_timer1
+    ;Initialize timer1 
+    MOVLW b'11001001'   ;Set 16 bit mode, enable timer1
+    MOVWF T1CON		;Set conf
+    BCF PIE1, TMR1IE	;Disable timer1 interrupt
+    RETURN
+    
+save_timer1_value       
+    ;call when RG0 is pressed to save the timer1 value
+    MOVLW b'01100010';test
+    MOVWF TMR1L;test
+    MOVLW b'10010101';test
+    MOVWF TMR1H;test
+    MOVFF TMR1H, saved_timer1_high ;swap when test over
+    MOVFF TMR1L, saved_timer1_low
+    
+    MOVLW b'00000000'   ;Disable timer1
+    MOVWF T1CON
+    RETURN
+
+compute_ball_location
+    ;puts the new ball location to the new_ball_location variable
+    MOVF saved_timer1_low, W    
+    BCF  WREG, 0                
+    BCF  WREG, 1                   
+    SUBWF saved_timer1_low, W   ;2 rightmost bit are now in the wreg
+    MOVWF new_ball_location 
+    RETURN
+	
+
+timer1_right_shift	
+    ;does a single shift on the saved timer1 values
+    MOVF  saved_timer1_high, W ;save to WREG
+    BTFSC saved_timer1_low , 0 ;if bit 0 is set
+    BSF   saved_timer1_high, 0 ;set bit 8
+    BTFSS saved_timer1_low , 0 ;if bit 0 is clear
+    BCF   saved_timer1_high, 0 ;clear bit 8
+    BTFSC WREG             , 0 ;if bit 8 is set
+    BSF   saved_timer1_low , 0 ;set bit 0	
+    BTFSS WREG             , 0 ;if bit 8 is clear
+    BCF   saved_timer1_low , 0 ;clear bit 0
+    RRNCF saved_timer1_low     ;rotate low
+    RRNCF saved_timer1_high    ;rotate high
+    RETURN
+    
+do_timer1_shifts
+    ;does shifts according to the current level
+    MOVLW d'1'      ;if   level 1
+    CPFSGT level    
+    GOTO level_no_1 
+    MOVLW d'2'	    ;elif level 2
+    CPFSGT level
+    GOTO level_no_2
+    GOTO level_no_3 ;else level 3
+    
+    level_no_1:     ;shift count 1
+	MOVLW d'1'
+	MOVWF t_dts
+	GOTO loop_dts
+    level_no_2:     ;shift count 3
+	MOVLW d'3'
+	MOVWF t_dts
+	GOTO loop_dts
+    level_no_3:     ;shift count 5
+	MOVLW d'5'
+	MOVWF t_dts
+	GOTO loop_dts
+	
+    loop_dts:       ;do the shifts
+	CALL timer1_right_shift
+	DECFSZ t_dts, F
+	GOTO loop_dts
+    RETURN
+    
+generate_ball_location
+    ;call this to compute the ball location
+    CALL compute_ball_location
+    CALL do_timer1_shifts
+    RETURN  
+;;;;;;;;;;;;       Random ball generation algorithm ends here       ;;;;;;;;;;;;
+
+    
+;   END GAME CHECK
+end_game_check
+    cpfslt	d'35'
+    goto	set_end_game_flag
+    cpfseq	b'00000000'	;   if level variable is shows level 0
+    goto	set_end_game_flag
+    return
+    
+    set_end_game_flag:
+	movlw	0x01	 ;   set flag to end game
+	movwf	is_ended ;
+    return
+;
+    
+main:
+    btfss   PORTG,0         ;   go to start_after_release when RG0 pressed
+    goto    main
+    goto    start_after_release
+ end
