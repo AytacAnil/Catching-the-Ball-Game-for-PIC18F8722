@@ -127,7 +127,7 @@ start_game:
     goto game_loop
 
 game_loop:
-    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    btfsc   is_ended,0	    ;	if game ended flag is set, goto init part and start again
     goto    init
     btfsc   PORTG,2         ;   if set, go to RG2 pressed state
     goto    rg2_pressed
@@ -136,7 +136,7 @@ game_loop:
     goto    game_loop       ;   if RG2 = RG3 = 0, check again
 
 rg2_pressed:
-    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    btfsc   is_ended,0	    ;	if game ended flag is set, goto init part and start again
     goto    init
     btfsc   PORTG,2         ;   if RG2 is held pressed, loop here
     goto    rg2_pressed
@@ -150,7 +150,7 @@ rg2_pressed:
     goto    game_loop       ;   pad shifted, go to game loop
 
 check_pad_loc_BC_right:
-    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    btfsc   is_ended,0	    ;	if game ended flag is set, goto init part and start again
     goto    init
     btfss   pad_loc,6       ;   checks if the left part of pad is on RB5
     goto    game_loop       ;   goto game_loop because pad is on the right edge
@@ -162,7 +162,7 @@ check_pad_loc_BC_right:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 rg3_pressed:
-    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    btfsc   is_ended,0	    ;	if game ended flag is set, goto init part and start again
     goto    init
     btfsc   PORTG,3         ;   if RG3 is held pressed, loop here
     goto    rg3_pressed
@@ -176,7 +176,7 @@ rg3_pressed:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 check_pad_loc_BC_left:
-    btfss   is_ended,0	    ;	if game ended flag is set, goto init part and start again
+    btfsc   is_ended,0	    ;	if game ended flag is set, goto init part and start again
     goto    init
     btfss   pad_loc,5       ;   checks if the right part of pad is on RC5
     goto    game_loop       ;   goto game_loop because pad is on the left edge
