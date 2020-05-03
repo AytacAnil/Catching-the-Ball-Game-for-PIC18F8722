@@ -263,6 +263,8 @@ timer0_interrupt:
     clrf	counter                 ;Yes, then clear count variable
     INCF    timer0_interrupt_counter
     call    generate_new_ball
+    INCF    ball_counter
+    goto    timer0_interrupt_exit
 
 timer0_interrupt_exit:
     bcf	    INTCON, 2		    ;Clear TMROIF
