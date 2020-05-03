@@ -339,10 +339,10 @@ do_timer1_shifts
     ;	2 -> a,b,d,e,g: 1101|1010
     ;	3 -> a,b,c,d,g: 1111|0010
     MOVF  level, W
-    XORLW d'01100000'	    ;if   level 1
+    XORLW b'01100000'	    ;if   level 1
     BZ    level_no_1
     MOVF  level, W
-    XORLW d'11011010'	    ;elif level 2
+    XORLW b'11011010'	    ;elif level 2
     BZ	  level_no_2
     GOTO  level_no_3	    ;else level 3
 
