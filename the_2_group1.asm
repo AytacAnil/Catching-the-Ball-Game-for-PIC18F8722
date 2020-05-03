@@ -19,15 +19,13 @@ status_temp       res 1
 pclath_temp       res 1
 ball_counter      res 1
 timer0_interrupt_freq      res 1
+timer0_interrupt_counter      res 1
 
 saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
 new_ball_location res 1 ;   for new ball generation
 t_dts		  res 1 ;   for new ball generation, trivial
-num_balls_created res 1 ; Aytaç'â sor
-
-;timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
-is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
+is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state 
 
  ORG     0000h
  goto	init
@@ -77,9 +75,17 @@ init:
     clrf    TRISG
     clrf    TRISH
     clrf    TRISJ
+    clrf    PORTA
+    clrf    LATA
+    clrf    PORTB
+    clrf    LATB
+    clrf    PORTC
+    clrf    LATC
+    clrf    PORTD
+    clrf    LATD
     clrf    INTCON
     clrf    PIR1
-    clrf    WREG;
+    clrf    WREG
     clrf    T0CON
 
     movlw   b'00001111'
@@ -118,12 +124,12 @@ init:
     call    init_timer1     ;	initialize Timer1
 
     ;Initialize Timer0
-    movlw   b'01000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
+    movlw   b'11000111' ; Disable Timer0, Configure Timer0 as an 8-bit,
                         ; Timer0 increment with a prescaler of 1:256.
     movwf   T0CON
 
     ;Enable interrupts
-    movlw   b'11100000' ; Enable Global, peripheral, Timer0 interrupts by
+    movlw   b'11000000' ; Enable Global, peripheral, Timer0 interrupts by
                         ; setting GIE, PEIE, and TMR0IE bits to 1
     movwf   INTCON
 
@@ -145,10 +151,12 @@ start_after_release:
 
 start_game:
     ;   call create_random_ball
-    incf    ball_counter ; first ball counted
-    movlw	d'39'
-    movwf	TMR0 ; initial timer value
-    bsf     T0CON, 7    ; Enable Timer0
+    ;	INCF    ball_counter ; first ball counted
+    movlw   d'0'
+    movwf   timer0_interrupt_counter; set counter for timer0 to zero
+    movlw   d'39'
+    movwf   TMR0 ; initial timer value
+    bsf     INTCON, 5    ; Enable Timer0
     goto game_loop
 
 game_loop:
@@ -213,18 +221,18 @@ check_pad_loc_BC_left:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 high_isr:
-    ;call    save_registers
-
     movlw   d'5'
     cpfsgt  ball_counter ; check ball count is greater than 5
     goto    setfreq90  ; No, namely, level = 1, then
     movlw   d'15'       ; Yes
     cpfsgt  ball_counter ;  check ball count is greater than 15
     goto    setfreq72   ; No, namely, level = 2, then
-    movlw   d'63'       ; Yes
+    movlw   d'30'       ; Yes
     cpfslt  ball_counter ;  check ball count is equal 30
-    goto   setfreq63 ; No, namely, level = 3 and game has not been over, then
-    goto    timer0_interrupt_exit; Yes
+    goto    setfreq63 ; No, namely, level = 3 and game has not been over, then
+    call    shift_balls; Yes 
+    INCF    timer0_interrupt_counter
+    goto    timer0_interrupt_exit
 
 setfreq90:
     movlw   d'90'
@@ -247,20 +255,20 @@ setfreq63:
 
 ;;;;;;;;;;;;;;;;;;;;;;;; Timer0 interrupt handler part ;;;;;;;;;;;;;;;;;;;;;;;;;;
 timer0_interrupt:
-    incf	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
+    INCF	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
     movf	counter, w              ;Move count to Working register
     subwf	timer0_interrupt_freq,0  ;Subtract W from timer0_interrupt_freq
     btfss	STATUS, Z               ;Is the result Zero?
     goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
-    ; call random_ball_generator
+    INCF    timer0_interrupt_counter
+    call    generate_new_ball
 
 timer0_interrupt_exit:
     bcf	    INTCON, 2		    ;Clear TMROIF
     movlw	d'39'
     movwf	TMR0
     call    end_game_check
-    ;call	restore_registers   ;Restore STATUS and PCLATH registers to their state before interrupt occurs
     RETFIE  FAST
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
@@ -296,8 +304,6 @@ save_timer1_value
     MOVFF TMR1L, saved_timer1_low
     MOVFF TMR1H, saved_timer1_high
 
-    MOVLW b'00000000'   ;Disable timer1
-    MOVWF T1CON
     RETURN
 
 compute_ball_location
@@ -387,7 +393,6 @@ insert_generated_ball
 	BSF LATD, 0
 	GOTO ball_generated
     ball_generated:
-	INCF num_balls_created
     return
 
 shift_balls
@@ -451,12 +456,13 @@ generate_new_ball
 
 ;   END GAME CHECK
 end_game_check
-    cpfslt	d'35'
+    movlw	d'36'
+    cpfslt	timer0_interrupt_counter
     goto	set_end_game_flag
-    movf	hp, w
-    cpfseq	d'0'	    ;   if hp variable is shows hp 0
+    movlw	d'0'
+    cpfsgt	hp
+    goto	set_end_game_flag
     return
-    goto	set_end_game_flag
 
     set_end_game_flag:
 	movlw	0x01	    ;   set flag to end game
@@ -466,15 +472,16 @@ end_game_check
 
 ;   HP DECREMENT FUNCTION
 decrement_hp
-    movwf	hp,0	    ;	get hp value in 7 segment format
-    cpfseq	b'00000000' ;	if( hp != 0 ) goto hp_1 check
+    movlw	d'0'
+    cpfseq	hp ;	if( hp != 0 ) goto hp_1 check
     goto	hp_1
     movlw	0x01	    ;	set is_ended flag to end game
     movwf	is_ended    ;
     return
 
     hp_1:
-	cpfseq	b'01100000' ;	if( hp != 1 ) goto hp_2 check
+	movlw	b'01100000';1
+	cpfseq	hp ;	if( hp != 1 ) goto hp_2 check
 	goto	hp_2
 	movlw	b'00000000' ;	change hp to 0 in 7 segment format
 	movwf	hp
@@ -483,28 +490,32 @@ decrement_hp
 	return
 
     hp_2:
-	cpfseq	b'11011010' ;	if( hp != 2 ) goto hp_3 check
+	movlw	b'11011010';2
+	cpfseq	hp ;	if( hp != 2 ) goto hp_3 check
 	goto	hp_3
 	movlw	b'01100000' ;	change hp to 1 in 7 segment format
 	movwf	hp
 	return
 
     hp_3:
-	cpfseq	b'11110010' ;	if( hp != 3 ) goto hp_4 check
+	movlw	b'11110010';3
+	cpfseq	hp ;	if( hp != 3 ) goto hp_4 check
 	goto	hp_4
 	movlw	b'11011010' ;	change hp to 2 in 7 segment format
 	movwf	hp
 	return
 
     hp_4:
-	cpfseq	b'01100110' ;	if( hp != 4 ) goto hp_5 check
+	movlw	b'01100110';4
+	cpfseq	hp ;	if( hp != 4 ) goto hp_5 check
 	goto	hp_5
 	movlw	b'11110010' ;	change hp to 3 in 7 segment format
 	movwf	hp
 	return
 
     hp_5:
-	cpfseq	b'10110110' ;	if( hp != 5 ) return
+	movlw	b'10110110';5
+	cpfseq	hp ;	if( hp != 5 ) return
 	goto	hp_gt_5
 	movlw	b'01100110' ;	change hp to 4 in 7 segment format
 	movwf	hp
@@ -514,7 +525,6 @@ decrement_hp
 	return
 ;
 
-    
 main:
     btfss   PORTG,0         ;   go to start_after_release when RG0 pressed
     goto    main
