@@ -19,14 +19,14 @@ status_temp       res 1
 pclath_temp       res 1
 ball_counter      res 1
 timer0_interrupt_freq      res 1
+timer0_interrupt_counter      res 1
 
 saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
 new_ball_location res 1 ;   for new ball generation
 t_dts		  res 1 ;   for new ball generation, trivial
-num_balls_created res 1 ; Aytaç'â sor
 
-timer0_intrpt_no  res 1 ;   for checking if all balls gone, vould be named differently @metin
+
 is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
 
  ORG     0000h
@@ -146,6 +146,8 @@ start_after_release:
 start_game:
     ;   call create_random_ball
     incf    ball_counter ; first ball counted
+    movlw   d'0'
+    movwf   timer0_interrupt_counter; set counter for timer0 to zero
     movlw	d'39'
     movwf	TMR0 ; initial timer value
     bsf     INTCON, 5    ; Enable Timer0
@@ -213,18 +215,18 @@ check_pad_loc_BC_left:
     goto    game_loop       ;   pad shifted, go to game_loop
 
 high_isr:
-    ;call    save_registers
-
     movlw   d'5'
     cpfsgt  ball_counter ; check ball count is greater than 5
     goto    setfreq90  ; No, namely, level = 1, then
     movlw   d'15'       ; Yes
     cpfsgt  ball_counter ;  check ball count is greater than 15
     goto    setfreq72   ; No, namely, level = 2, then
-    movlw   d'63'       ; Yes
+    movlw   d'30'       ; Yes
     cpfslt  ball_counter ;  check ball count is equal 30
-    goto   setfreq63 ; No, namely, level = 3 and game has not been over, then
-    goto    timer0_interrupt_exit; Yes ; ?????????????????????????????????????????????????????????????????
+    goto    setfreq63 ; No, namely, level = 3 and game has not been over, then
+    call    shift_balls; Yes 
+    incf    timer0_interrupt_counter
+    goto    timer0_interrupt_exit
 
 setfreq90:
     movlw   d'90'
@@ -253,14 +255,14 @@ timer0_interrupt:
     btfss	STATUS, Z               ;Is the result Zero?
     goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
-    ; call random_ball_generator
+    incf    timer0_interrupt_counter
+    call    generate_new_ball
 
 timer0_interrupt_exit:
     bcf	    INTCON, 2		    ;Clear TMROIF
     movlw	d'39'
     movwf	TMR0
     call    end_game_check
-    ;call	restore_registers   ;Restore STATUS and PCLATH registers to their state before interrupt occurs
     RETFIE  FAST
 
 ;;;;;;;;;;;; Register handling for proper operation of main program ;;;;;;;;;;;;
@@ -296,8 +298,6 @@ save_timer1_value
     MOVFF TMR1L, saved_timer1_low
     MOVFF TMR1H, saved_timer1_high
 
-    MOVLW b'00000000'   ;Disable timer1
-    MOVWF T1CON
     RETURN
 
 compute_ball_location
@@ -387,7 +387,6 @@ insert_generated_ball
 	BSF LATD, 0
 	GOTO ball_generated
     ball_generated:
-	INCF num_balls_created
     return
 
 shift_balls
@@ -451,6 +450,7 @@ generate_new_ball
 
 ;   END GAME CHECK
 end_game_check
+
     cpfslt	d'35'
     goto	set_end_game_flag
     cpfseq	b'00000000'	    ;   if level variable is shows level 0
