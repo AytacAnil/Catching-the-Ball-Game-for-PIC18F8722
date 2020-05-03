@@ -145,11 +145,11 @@ start_after_release:
 
 start_game:
     ;   call create_random_ball
-    incf    ball_counter ; first ball counted
+    ;	INCF    ball_counter ; first ball counted
     movlw   d'0'
     movwf   timer0_interrupt_counter; set counter for timer0 to zero
-    movlw	d'39'
-    movwf	TMR0 ; initial timer value
+    movlw   d'39'
+    movwf   TMR0 ; initial timer value
     bsf     INTCON, 5    ; Enable Timer0
     goto game_loop
 
@@ -225,7 +225,7 @@ high_isr:
     cpfslt  ball_counter ;  check ball count is equal 30
     goto    setfreq63 ; No, namely, level = 3 and game has not been over, then
     call    shift_balls; Yes 
-    incf    timer0_interrupt_counter
+    INCF    timer0_interrupt_counter
     goto    timer0_interrupt_exit
 
 setfreq90:
@@ -249,13 +249,13 @@ setfreq63:
 
 ;;;;;;;;;;;;;;;;;;;;;;;; Timer0 interrupt handler part ;;;;;;;;;;;;;;;;;;;;;;;;;;
 timer0_interrupt:
-    incf	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
+    INCF	counter, f              ;Timer interrupt handler part begins here by incrementing count variable
     movf	counter, w              ;Move count to Working register
     subwf	timer0_interrupt_freq,0  ;Subtract W from timer0_interrupt_freq
     btfss	STATUS, Z               ;Is the result Zero?
     goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
-    incf    timer0_interrupt_counter
+    INCF    timer0_interrupt_counter
     call    generate_new_ball
 
 timer0_interrupt_exit:
@@ -450,10 +450,11 @@ generate_new_ball
 
 ;   END GAME CHECK
 end_game_check
-
-    cpfslt	d'35'
+    movlw	d'36'
+    cpfslt	timer0_interrupt_counter
     goto	set_end_game_flag
-    cpfseq	b'00000000'	    ;   if level variable is shows level 0
+    movlw	d'0'
+    cpfsgt	hp
     goto	set_end_game_flag
     return
 
