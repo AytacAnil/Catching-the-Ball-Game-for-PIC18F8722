@@ -25,9 +25,7 @@ saved_timer1_low  res 1 ;   for new ball generation
 saved_timer1_high res 1 ;   for new ball generation
 new_ball_location res 1 ;   for new ball generation
 t_dts		  res 1 ;   for new ball generation, trivial
-
-
-is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state
+is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init state 
 
  ORG     0000h
  goto	init
@@ -77,9 +75,17 @@ init:
     clrf    TRISG
     clrf    TRISH
     clrf    TRISJ
+    clrf    PORTA
+    clrf    LATA
+    clrf    PORTB
+    clrf    LATB
+    clrf    PORTC
+    clrf    LATC
+    clrf    PORTD
+    clrf    LATD
     clrf    INTCON
     clrf    PIR1
-    clrf    WREG;
+    clrf    WREG
     clrf    T0CON
 
     movlw   b'00001111'
@@ -466,15 +472,16 @@ end_game_check
 
 ;   HP DECREMENT FUNCTION
 decrement_hp
-    movwf	hp,0	    ;	get hp value in 7 segment format
-    cpfseq	b'00000000' ;	if( hp != 0 ) goto hp_1 check
+    movlw	d'0'
+    cpfseq	hp ;	if( hp != 0 ) goto hp_1 check
     goto	hp_1
     movlw	0x01	    ;	set is_ended flag to end game
     movwf	is_ended    ;
     return
 
     hp_1:
-	cpfseq	b'01100000' ;	if( hp != 1 ) goto hp_2 check
+	movlw	b'01100000';1
+	cpfseq	hp ;	if( hp != 1 ) goto hp_2 check
 	goto	hp_2
 	movlw	b'00000000' ;	change hp to 0 in 7 segment format
 	movwf	hp
@@ -483,28 +490,32 @@ decrement_hp
 	return
 
     hp_2:
-	cpfseq	b'11011010' ;	if( hp != 2 ) goto hp_3 check
+	movlw	b'11011010';2
+	cpfseq	hp ;	if( hp != 2 ) goto hp_3 check
 	goto	hp_3
 	movlw	b'01100000' ;	change hp to 1 in 7 segment format
 	movwf	hp
 	return
 
     hp_3:
-	cpfseq	b'11110010' ;	if( hp != 3 ) goto hp_4 check
+	movlw	b'11110010';3
+	cpfseq	hp ;	if( hp != 3 ) goto hp_4 check
 	goto	hp_4
 	movlw	b'11011010' ;	change hp to 2 in 7 segment format
 	movwf	hp
 	return
 
     hp_4:
-	cpfseq	b'01100110' ;	if( hp != 4 ) goto hp_5 check
+	movlw	b'01100110';4
+	cpfseq	hp ;	if( hp != 4 ) goto hp_5 check
 	goto	hp_5
 	movlw	b'11110010' ;	change hp to 3 in 7 segment format
 	movwf	hp
 	return
 
     hp_5:
-	cpfseq	b'10110110' ;	if( hp != 5 ) return
+	movlw	b'10110110';5
+	cpfseq	hp ;	if( hp != 5 ) return
 	goto	hp_gt_5
 	movlw	b'01100110' ;	change hp to 4 in 7 segment format
 	movwf	hp
