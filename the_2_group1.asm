@@ -335,13 +335,16 @@ timer1_right_shift
 
 do_timer1_shifts
     ;does shifts according to the current level
-    MOVLW d'1'      ;if   level 1
-    CPFSGT level
-    GOTO level_no_1
-    MOVLW d'2'	    ;elif level 2
-    CPFSGT level
-    GOTO level_no_2
-    GOTO level_no_3 ;else level 3
+    ;	1 -> b,c:	0110|0000
+    ;	2 -> a,b,d,e,g: 1101|1010
+    ;	3 -> a,b,c,d,g: 1111|0010
+    MOVF  level, W
+    XORLW d'01100000'	    ;if   level 1
+    BZ    level_no_1
+    MOVF  level, W
+    XORLW d'11011010'	    ;elif level 2
+    BZ	  level_no_2
+    GOTO  level_no_3	    ;else level 3
 
     level_no_1:     ;shift count 1
 	MOVLW d'1'
