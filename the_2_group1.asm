@@ -36,9 +36,9 @@ is_ended	  res 1 ;   set (=0x01) means the game has been ended and goto init sta
 
 ; LOW ISR FOR SHOWING 7 SEGMENT DISPLAY |---------------------------------------
 low_isr:
-    ;	1 -> b,c:	0110|0000
-    ;	2 -> a,b,d,e,g: 1101|1010
-    ;	3 -> a,b,c,d,g: 1111|0010
+    ;	1 -> b,c:	0110|0000 = 96
+    ;	2 -> a,b,d,e,g: 1101|1010 = 218
+    ;	3 -> a,b,c,d,g: 1111|0010 = 
     ;	4 -> b,c,f,g:   0110|0110
     ;	5 -> a,c,d,f,g: 1011|0110
     call    save_registers
@@ -135,8 +135,9 @@ init:
 
 
     ;set timer0 related variables;
-    movlw   0
+    movlw   d'0'
     movwf   counter ; counter for timer0 interrupt management
+    movlw   d'1'
     movwf   ball_counter ; counts created ball number
     movlw   d'90'
     movwf   timer0_interrupt_freq ; set level 1 frequency
@@ -228,21 +229,27 @@ high_isr:
     cpfsgt  ball_counter ;  check ball count is greater than 15
     goto    setfreq72   ; No, namely, level = 2, then
     movlw   d'30'       ; Yes
-    cpfslt  ball_counter ;  check ball count is equal 30
+    cpfsgt  ball_counter ;  check ball count is equal 30
     goto    setfreq63 ; No, namely, level = 3 and game has not been over, then
     call    shift_balls; Yes 
-    INCF    timer0_interrupt_counter
+    INCF    ball_counter    ;	timer0_interrupt_counter dı daha önce
     goto    timer0_interrupt_exit
 
 setfreq90:
+    movlw   b'01100000'	    ;	level 1
+    movwf   level
     movlw   d'90'
     movwf   timer0_interrupt_freq
     goto    timer0_interrupt
 setfreq72:
+    movlw   b'11011010'	    ;	level 2
+    movwf   level
     movlw   d'72'
     movwf   timer0_interrupt_freq
     goto    timer0_interrupt
 setfreq63:
+    movlw   b'11110010'	    ;	level 3
+    movwf   level
     movlw   d'63'
     movwf   timer0_interrupt_freq
     goto    timer0_interrupt
@@ -261,7 +268,7 @@ timer0_interrupt:
     btfss	STATUS, Z               ;Is the result Zero?
     goto	timer0_interrupt_exit    ;No, then exit from interrupt service routine
     clrf	counter                 ;Yes, then clear count variable
-    INCF    timer0_interrupt_counter
+    ;	INCF    timer0_interrupt_counter
     call    generate_new_ball
     INCF    ball_counter
     goto    timer0_interrupt_exit
@@ -462,7 +469,7 @@ generate_new_ball
 ;   END GAME CHECK
 end_game_check
     movlw	d'36'
-    cpfslt	timer0_interrupt_counter
+    cpfslt	ball_counter
     goto	set_end_game_flag
     movlw	d'0'
     cpfsgt	hp
