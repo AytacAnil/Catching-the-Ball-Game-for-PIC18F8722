@@ -1,6 +1,5 @@
-# Ceng336_the2
 
-## Catching the Ball Game
+# Catching the Ball Game
 
 **The program is using PIC assembly language and written for PIC18F8722
 working at 40 MHz.**
